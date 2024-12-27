@@ -26,16 +26,26 @@ const (
 	MsgTypeVideo
 )
 
-//SendTextMessage 发送文本消息,消息内容最长5000
-func (c *ImClient) SendTextMessage(fromID, toID string, msg *TextMessage, opt *ImSendMessageOption) error {
+type MessageResult struct {
+	Code int    `json:"code"`
+	Desc string `json:"desc"`
+	Data struct {
+		MsgId    int64 `json:"msgid"`
+		TimeTag  int64 `json:"timetag"`
+		Antispam bool  `json:"antispam"`
+	} `json:"data"`
+}
+
+// SendTextMessage 发送文本消息,消息内容最长5000
+func (c *ImClient) SendTextMessage(fromID, toID string, msg *TextMessage, opt *ImSendMessageOption) (jsonRes MessageResult, err error) {
 	bd, err := jsonTool.MarshalToString(msg)
 	if err != nil {
-		return err
+		return
 	}
 	return c.SendMessage(fromID, toID, bd, 0, MsgTypeText, opt)
 }
 
-//SendBatchTextMessage 批量发送文本消息
+// SendBatchTextMessage 批量发送文本消息
 func (c *ImClient) SendBatchTextMessage(fromID string, toIDs []string, msg *TextMessage, opt *ImSendMessageOption) (string, error) {
 	bd, err := jsonTool.MarshalToString(msg)
 	if err != nil {
@@ -45,7 +55,7 @@ func (c *ImClient) SendBatchTextMessage(fromID string, toIDs []string, msg *Text
 	return c.SendBatchMessage(fromID, bd, toIDs, MsgTypeText, opt)
 }
 
-//SendBatchImageMessage 批量发送图片
+// SendBatchImageMessage 批量发送图片
 func (c *ImClient) SendBatchImageMessage(fromID string, toIDs []string, msg *ImageMessage, opt *ImSendMessageOption) (string, error) {
 	bd, err := jsonTool.MarshalToString(msg)
 	if err != nil {
@@ -55,7 +65,7 @@ func (c *ImClient) SendBatchImageMessage(fromID string, toIDs []string, msg *Ima
 	return c.SendBatchMessage(fromID, bd, toIDs, MsgTypeImage, opt)
 }
 
-//SendBatchVoiceMessage .
+// SendBatchVoiceMessage .
 func (c *ImClient) SendBatchVoiceMessage(fromID string, toIDs []string, msg *VoiceMessage, opt *ImSendMessageOption) (string, error) {
 	bd, err := jsonTool.MarshalToString(msg)
 	if err != nil {
@@ -65,7 +75,7 @@ func (c *ImClient) SendBatchVoiceMessage(fromID string, toIDs []string, msg *Voi
 	return c.SendBatchMessage(fromID, bd, toIDs, MsgTypeVoice, opt)
 }
 
-//SendBatchVideoMessage .
+// SendBatchVideoMessage .
 func (c *ImClient) SendBatchVideoMessage(fromID string, toIDs []string, msg *VideoMessage, opt *ImSendMessageOption) (string, error) {
 	bd, err := jsonTool.MarshalToString(msg)
 	if err != nil {
@@ -83,7 +93,7 @@ func (c *ImClient) SendBatchVideoMessage(fromID string, toIDs []string, msg *Vid
  * @param msgType 0 表示文本消息,1 表示图片，2 表示语音，3 表示视频，4 表示地理位置信息，6 表示文件，100 自定义消息类型（特别注意，对于未对接易盾反垃圾功能的应用，该类型的消息不会提交反垃圾系统检测）
  * @param body 最大长度5000字符，为一个JSON串
  */
-func (c *ImClient) SendMessage(fromID, toID, body string, ope, msgType int, opt *ImSendMessageOption) error {
+func (c *ImClient) SendMessage(fromID, toID, body string, ope, msgType int, opt *ImSendMessageOption) (jsonRes MessageResult, err error) {
 	param := map[string]string{"from": fromID}
 
 	param["ope"] = strconv.Itoa(ope)
@@ -132,23 +142,17 @@ func (c *ImClient) SendMessage(fromID, toID, body string, ope, msgType int, opt 
 
 	resp, err := client.Post(sendMsgPoint)
 
-	var jsonRes map[string]*json.RawMessage
 	err = jsoniter.Unmarshal(resp.Body(), &jsonRes)
 	if err != nil {
-		return err
+		return
 	}
 
-	var code int
-	err = json.Unmarshal(*jsonRes["code"], &code)
-	if err != nil {
-		return err
+	if jsonRes.Code != 200 {
+		err = errors.New(jsonRes.Desc)
+		return
 	}
 
-	if code != 200 {
-		return errors.New(string(resp.Body()))
-	}
-
-	return nil
+	return
 }
 
 //SendBatchMessage 批量发送点对点普通消息
